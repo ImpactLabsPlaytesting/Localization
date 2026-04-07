@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}2FA Verification{% endblock %}
+{% block content %}
+<div class="auth-box">
+    <h2>Two-Factor Authentication</h2>
+    {% if setup_mode %}
+    <p>Scan this QR code with your authenticator app:</p>
+    <img src="data:image/png;base64,{{ qr_base64 }}" alt="TOTP QR Code" class="qr-code">
+    <p class="small">Secret key: <code>{{ totp_secret }}</code></p>
+    {% endif %}
+    <form method="POST">
+        <label>Enter 6-digit code</label>
+        <input type="text" name="code" maxlength="6" pattern="[0-9]{6}" required autofocus autocomplete="off">
+        {% if setup_mode %}
+        <input type="hidden" name="setup_secret" value="{{ totp_secret }}">
+        {% endif %}
+        <button type="submit">Verify</button>
+    </form>
+</div>
+{% endblock %}

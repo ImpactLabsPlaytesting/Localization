@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+<p class="subtitle">Sheet: <code>{{ project.sheet_id }}</code> | Tab: <code>{{ project.main_tab }}</code></p>
+
+{% if languages %}
+<div class="card">
+    <h3>Invite Translators</h3>
+    <form method="POST" action="{{ url_for('admin_invite', pid=project.id) }}">
+        {% for lang in languages %}
+        <div class="invite-section">
+            <h4>{{ lang }}</h4>
+            {% set eligible = eligible_by_lang.get(lang, []) %}
+            {% if eligible %}
+            {% for t in eligible %}
+            <label class="checkbox-label">
+                <input type="checkbox" name="invite" value="{{ t.id }}:{{ lang }}"> {{ t.name }} ({{ t.email }})
+            </label>
+            {% endfor %}
+            {% else %}
+            <p class="empty">No eligible translators for {{ lang }}.</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit">Invite Selected</button>
+    </form>
+</div>
+{% endif %}
+
+{% if assignments %}
+<div class="card">
+    <h3>Active Translators</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Translator</th>
+                <th>Language</th>
+                <th>Progress</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in assignments %}
+            <tr>
+                <td class="{% if a.status == 'done' or a.progress.pct == 100 %}translator-done{% endif %}">
+                    {{ a.translator_name }}
+                </td>
+                <td>{{ a.language }}</td>
+                <td>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar {% if a.progress.pct >= 90 %}green{% elif a.progress.pct >= 50 %}yellow{% else %}red{% endif %}"
+                             style="width: {{ a.progress.pct }}%"></div>
+                    </div>
+                    <span class="progress-text">{{ a.progress.reviewed }}/{{ a.progress.total }} ({{ a.progress.pct }}%)</span>
+                </td>
+                <td>
+                    {% if a.status == 'done' %}
+                    <span class="badge badge-done">Done</span>
+                    {% else %}
+                    <span class="badge badge-active">Active</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if a.new_rows > 0 %}
+                    <form method="POST" action="{{ url_for('admin_sync_assignment', pid=project.id, aid=a.id) }}" class="inline">
+                        <button type="submit" class="btn btn-sm">Sync ({{ a.new_rows }} new)</button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" action="{{ url_for('admin_notify_assignment', pid=project.id, aid=a.id) }}" class="inline">
+                        <button type="submit" class="btn btn-sm">Notify</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin_delete_assignment', pid=project.id, aid=a.id) }}" class="inline"
+                          onsubmit="return confirm('Remove this assignment?')">
+                        <button type="submit" class="btn-danger btn-sm">Remove</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

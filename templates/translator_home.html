@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}My Projects{% endblock %}
+{% block content %}
+<h1>My Translation Projects</h1>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Project</th>
+                <th>Language</th>
+                <th>Progress</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in assignments %}
+            <tr>
+                <td>{{ a.project_name }}</td>
+                <td>{{ a.language }}</td>
+                <td>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar {% if a.progress.pct >= 90 %}green{% elif a.progress.pct >= 50 %}yellow{% else %}red{% endif %}"
+                             style="width: {{ a.progress.pct }}%"></div>
+                    </div>
+                    <span class="progress-text">{{ a.progress.reviewed }}/{{ a.progress.total }} ({{ a.progress.pct }}%)</span>
+                </td>
+                <td>
+                    {% if a.status == 'done' %}
+                    <span class="badge badge-done">Done</span>
+                    {% else %}
+                    <span class="badge badge-active">Active</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('translator_work', pid=a.project_id, aid=a.id) }}" class="btn btn-sm">
+                        {% if a.status == 'done' %}Review{% else %}Translate{% endif %}
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not assignments %}
+            <tr><td colspan="5" class="empty">No assignments yet. You'll be notified when you're invited to a project.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

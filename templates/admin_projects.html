@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Projects{% endblock %}
+{% block content %}
+<h1>Projects</h1>
+
+<div class="card">
+    <h3>Add Project</h3>
+    <form method="POST" action="{{ url_for('admin_add_project') }}" class="inline-form">
+        <input type="text" name="name" placeholder="Project Name" required>
+        <input type="text" name="sheet_id" placeholder="Google Sheet ID" required>
+        <input type="text" name="main_tab" placeholder="Tab name (default: Sheet1)" value="Sheet1">
+        <button type="submit">Add Project</button>
+    </form>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Project</th>
+                <th>Languages</th>
+                <th>Translators</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in projects %}
+            <tr>
+                <td><a href="{{ url_for('admin_project_detail', pid=p.id) }}">{{ p.name }}</a></td>
+                <td>{{ p.languages | join(', ') if p.languages else 'Loading...' }}</td>
+                <td>{{ p.assignment_count }}</td>
+                <td>
+                    <a href="{{ url_for('admin_project_detail', pid=p.id) }}" class="btn btn-sm">View</a>
+                    <form method="POST" action="{{ url_for('admin_delete_project', pid=p.id) }}" class="inline"
+                          onsubmit="return confirm('Delete {{ p.name }}?')">
+                        <button type="submit" class="btn-danger btn-sm">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not projects %}
+            <tr><td colspan="4" class="empty">No projects yet.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Impact Labs Localization{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">Impact Labs Localization</div>
+        <div class="nav-links">
+            {% if session.get('admin_authenticated') %}
+                <a href="{{ url_for('admin_dashboard') }}">Translators</a>
+                <a href="{{ url_for('admin_projects') }}">Projects</a>
+                <a href="{{ url_for('admin_logout') }}">Logout</a>
+            {% elif session.get('translator_id') %}
+                <span>{{ session.get('translator_name', '') }}</span>
+                <a href="{{ url_for('translator_home') }}">My Projects</a>
+                <a href="{{ url_for('translator_logout') }}">Logout</a>
+            {% endif %}
+        </div>
+    </nav>
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

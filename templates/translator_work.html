@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}{{ language }} - {{ project_name }}{% endblock %}
+{% block content %}
+<div class="work-header">
+    <h1>{{ project_name }} - {{ language }}</h1>
+    <div class="work-controls">
+        <span class="progress-text" id="progressCounter">{{ progress.reviewed }}/{{ progress.total }} reviewed ({{ progress.pct }}%)</span>
+        <input type="text" id="searchBox" placeholder="Search by key or English..." class="search-input">
+        <label class="checkbox-label">
+            <input type="checkbox" id="pendingOnly"> Show pending only
+        </label>
+        {% if assignment_status != 'done' %}
+        <form method="POST" action="{{ url_for('translator_mark_done', aid=assignment_id) }}" class="inline"
+              onsubmit="return confirm('Mark this assignment as done? Todd will be notified.')">
+            <button type="submit" class="btn btn-done">Mark as Done</button>
+        </form>
+        {% else %}
+        <span class="badge badge-done">Completed</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card table-card">
+    <table id="translationTable">
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Type</th>
+                <th>Context</th>
+                <th>English</th>
+                <th>Current Translation</th>
+                <th>Status</th>
+                <th>Corrected Translation</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr class="translation-row {% if row.status == 'Correct' %}row-correct{% elif row.status == 'Corrected' %}row-corrected{% else %}row-pending{% endif %}"
+                data-row="{{ row.row_num }}" data-key="{{ row.key }}" data-english="{{ row.english }}">
+                <td class="cell-key">{{ row.key }}</td>
+                <td class="cell-type">{{ row.type }}</td>
+                <td class="cell-context">{{ row.context }}</td>
+                <td class="cell-english">{{ row.english }}</td>
+                <td class="cell-current">{{ row.current }}</td>
+                <td class="cell-status">
+                    <button class="btn-status btn-correct {% if row.status == 'Correct' %}active{% endif %}"
+                            onclick="setStatus(this, {{ row.row_num }}, 'Correct')">Correct</button>
+                    <button class="btn-status btn-fix {% if row.status == 'Corrected' %}active{% endif %}"
+                            onclick="setStatus(this, {{ row.row_num }}, 'Corrected')">Needs Fix</button>
+                </td>
+                <td class="cell-corrected">
+                    <textarea class="correction-input {% if row.status != 'Corrected' %}hidden{% endif %}"
+                              data-row="{{ row.row_num }}"
+                              onblur="saveCorrected(this, {{ row.row_num }})">{{ row.corrected }}</textarea>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SAVE_URL = '{{ url_for("api_save") }}';
+const ASSIGNMENT_ID = {{ assignment_id }};
+
+function setStatus(btn, rowNum, status) {
+    const tr = btn.closest('tr');
+    const textarea = tr.querySelector('.correction-input');
+    const corrected = textarea ? textarea.value : '';
+
+    // Update button states
+    tr.querySelectorAll('.btn-status').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Show/hide textarea
+    if (status === 'Corrected') {
+        textarea.classList.remove('hidden');
+        textarea.focus();
+    } else {
+        textarea.classList.add('hidden');
+    }
+
+    // Update row class
+    tr.className = 'translation-row row-' + status.toLowerCase();
+    tr.dataset.key = tr.dataset.key;
+    tr.dataset.english = tr.dataset.english;
+
+    // Save
+    fetch(SAVE_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            assignment_id: ASSIGNMENT_ID,
+            row_num: rowNum,
+            status: status,
+            corrected: status === 'Correct' ? '' : corrected
+        })
+    }).then(r => r.json()).then(data => {
+        if (data.success) updateProgress();
+    });
+}
+
+function saveCorrected(textarea, rowNum) {
+    fetch(SAVE_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            assignment_id: ASSIGNMENT_ID,
+            row_num: rowNum,
+            status: 'Corrected',
+            corrected: textarea.value
+        })
+    });
+}
+
+function updateProgress() {
+    const rows = document.querySelectorAll('.translation-row');
+    const total = rows.length;
+    let reviewed = 0;
+    rows.forEach(r => {
+        if (r.classList.contains('row-correct') || r.classList.contains('row-corrected')) reviewed++;
+    });
+    const pct = total ? Math.round(reviewed / total * 100) : 0;
+    document.getElementById('progressCounter').textContent = reviewed + '/' + total + ' reviewed (' + pct + '%)';
+}
+
+// Search and filter
+document.getElementById('searchBox').addEventListener('input', filterRows);
+document.getElementById('pendingOnly').addEventListener('change', filterRows);
+
+function filterRows() {
+    const query = document.getElementById('searchBox').value.toLowerCase();
+    const pendingOnly = document.getElementById('pendingOnly').checked;
+    document.querySelectorAll('.translation-row').forEach(row => {
+        const key = (row.dataset.key || '').toLowerCase();
+        const english = (row.dataset.english || '').toLowerCase();
+        const matchesSearch = !query || key.includes(query) || english.includes(query);
+        const matchesPending = !pendingOnly || row.classList.contains('row-pending');
+        row.style.display = (matchesSearch && matchesPending) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Translator Login{% endblock %}
+{% block content %}
+<div class="auth-box">
+    <h2>Translator Login</h2>
+    <p>Sign in with your Google account to access your translation assignments.</p>
+    <a href="{{ url_for('translator_google_login') }}" class="btn btn-google">Sign in with Google</a>
+</div>
+{% endblock %}
