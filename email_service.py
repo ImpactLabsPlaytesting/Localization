@@ -5,7 +5,7 @@ from email.mime.text import MIMEText
 SMTP_USER = os.environ.get('SMTP_USER', '')
 SMTP_PASS = os.environ.get('SMTP_PASS', '')
 SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
-SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '465'))
 FROM_NAME = 'Todd Jackson (Impact Labs)'
 
 BITLY_LOGIN = 'https://bit.ly/LabsLocalization'
@@ -16,8 +16,7 @@ def send_email(to_email, subject, body_html):
     message['to'] = to_email
     message['from'] = f'{FROM_NAME} <{SMTP_USER}>'
     message['subject'] = subject
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-        server.starttls()
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
         server.login(SMTP_USER, SMTP_PASS)
         server.send_message(message)
 
