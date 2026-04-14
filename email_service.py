@@ -47,6 +47,7 @@ def _wrap_email(content, button_text=None, button_url=None):
 <tr><td align="center">
 <table width="560" cellpadding="0" cellspacing="0" style="background-color: #1a1a1a; border-radius: 12px; border: 1px solid #2a2a2a;">
     <tr><td style="padding: 32px 40px 0 40px; text-align: center;">
+        <img src="https://raw.githubusercontent.com/ImpactLabsPlaytesting/Localization/main/static/labslogo.png" alt="Impact Labs" style="width: 80px; height: auto; margin-bottom: 12px;">
         <div style="font-size: 22px; font-weight: bold; color: #00e68a; letter-spacing: 1px;">IMPACT LABS</div>
         <div style="font-size: 13px; color: #666; margin-top: 4px; letter-spacing: 2px;">LOCALIZATION</div>
     </td></tr>
@@ -59,7 +60,7 @@ def _wrap_email(content, button_text=None, button_url=None):
     {button_html}
     <tr><td style="padding: 24px 40px; text-align: center;">
         <hr style="border: none; border-top: 1px solid #2a2a2a; margin: 0 0 16px 0;">
-        <div style="color: #555; font-size: 12px;">Impact Labs Playtesting Division</div>
+        <div style="color: #555; font-size: 12px;">Impact Labs, a Division of Impact Reality</div>
     </td></tr>
 </table>
 </td></tr>
