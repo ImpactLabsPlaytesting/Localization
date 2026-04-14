@@ -181,7 +181,8 @@ button:hover, .btn:hover { background: var(--accent-hover); border-color: var(--
 /* Translation rows */
 .row-pending { background: var(--pending-bg); }
 .row-correct { background: var(--green-bg); }
-.row-corrected { background: #1a2a3a; }
+.row-corrected { background: var(--red-bg); }
+.row-suggestion { background: var(--yellow-bg); }
 .cell-key { font-family: monospace; font-size: 0.8rem; white-space: nowrap; }
 .cell-type { font-size: 0.8rem; color: var(--text-muted); }
 .cell-context { font-size: 0.8rem; color: var(--text-muted); max-width: 250px; }
@@ -195,8 +196,10 @@ button:hover, .btn:hover { background: var(--accent-hover); border-color: var(--
 }
 .btn-correct { border-color: var(--green); color: var(--green); background: transparent; }
 .btn-correct.active { background: var(--green); color: #fff; }
-.btn-fix { border-color: var(--yellow); color: var(--yellow); background: transparent; }
-.btn-fix.active { background: var(--yellow); color: #000; }
+.btn-fix { border-color: var(--red); color: var(--red); background: transparent; }
+.btn-fix.active { background: var(--red); color: #fff; }
+.btn-suggestion { border-color: var(--yellow); color: var(--yellow); background: transparent; }
+.btn-suggestion.active { background: var(--yellow); color: #000; }
 
 /* Correction textarea */
 .correction-input {

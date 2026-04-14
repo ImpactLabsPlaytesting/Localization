@@ -122,6 +122,21 @@ def read_translator_tab(sheet_id, tab_name):
     return parsed
 
 
+def _get_sheet_id(service, spreadsheet_id, tab_name):
+    meta = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+    for sheet in meta['sheets']:
+        if sheet['properties']['title'] == tab_name:
+            return sheet['properties']['sheetId']
+    return None
+
+
+STATUS_COLORS = {
+    'Correct': {'red': 0.85, 'green': 1.0, 'blue': 0.85, 'alpha': 1},
+    'Corrected': {'red': 1.0, 'green': 0.85, 'blue': 0.85, 'alpha': 1},
+    'Suggestion': {'red': 1.0, 'green': 1.0, 'blue': 0.8, 'alpha': 1},
+}
+
+
 def save_translation(sheet_id, tab_name, row_num, status, corrected=''):
     service = _get_service()
     service.spreadsheets().values().update(
@@ -130,6 +145,31 @@ def save_translation(sheet_id, tab_name, row_num, status, corrected=''):
         valueInputOption='RAW',
         body={'values': [[status, corrected]]}
     ).execute()
+
+    color = STATUS_COLORS.get(status)
+    if color:
+        sid = _get_sheet_id(service, sheet_id, tab_name)
+        if sid is not None:
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=sheet_id,
+                body={'requests': [{
+                    'repeatCell': {
+                        'range': {
+                            'sheetId': sid,
+                            'startRowIndex': row_num - 1,
+                            'endRowIndex': row_num,
+                            'startColumnIndex': 5,
+                            'endColumnIndex': 6
+                        },
+                        'cell': {
+                            'userEnteredFormat': {
+                                'backgroundColor': color
+                            }
+                        },
+                        'fields': 'userEnteredFormat.backgroundColor'
+                    }
+                }]}
+            ).execute()
 
 
 def get_new_keys(sheet_id, main_tab, translator_tab):
@@ -171,14 +211,16 @@ def sync_new_rows(sheet_id, main_tab, translator_tab, language):
 def get_progress(sheet_id, tab_name):
     rows = read_translator_tab(sheet_id, tab_name)
     total = len(rows)
-    reviewed = len([r for r in rows if r['status'] in ('Correct', 'Corrected')])
+    reviewed = len([r for r in rows if r['status'] in ('Correct', 'Corrected', 'Suggestion')])
     correct = len([r for r in rows if r['status'] == 'Correct'])
     corrected = len([r for r in rows if r['status'] == 'Corrected'])
+    suggestion = len([r for r in rows if r['status'] == 'Suggestion'])
     pct = round(reviewed / total * 100) if total else 0
     return {
         'total': total,
         'reviewed': reviewed,
         'correct': correct,
         'corrected': corrected,
+        'suggestion': suggestion,
         'pct': pct
     }

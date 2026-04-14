@@ -35,7 +35,7 @@
         </thead>
         <tbody>
             {% for row in rows %}
-            <tr class="translation-row {% if row.status == 'Correct' %}row-correct{% elif row.status == 'Corrected' %}row-corrected{% else %}row-pending{% endif %}"
+            <tr class="translation-row {% if row.status == 'Correct' %}row-correct{% elif row.status == 'Corrected' %}row-corrected{% elif row.status == 'Suggestion' %}row-suggestion{% else %}row-pending{% endif %}"
                 data-row="{{ row.row_num }}" data-key="{{ row.key }}" data-english="{{ row.english }}">
                 <td class="cell-key">{{ row.key }}</td>
                 <td class="cell-type">{{ row.type }}</td>
@@ -47,9 +47,11 @@
                             onclick="setStatus(this, {{ row.row_num }}, 'Correct')">Correct</button>
                     <button class="btn-status btn-fix {% if row.status == 'Corrected' %}active{% endif %}"
                             onclick="setStatus(this, {{ row.row_num }}, 'Corrected')">Needs Fix</button>
+                    <button class="btn-status btn-suggestion {% if row.status == 'Suggestion' %}active{% endif %}"
+                            onclick="setStatus(this, {{ row.row_num }}, 'Suggestion')">Suggestion</button>
                 </td>
                 <td class="cell-corrected">
-                    <textarea class="correction-input {% if row.status != 'Corrected' %}hidden{% endif %}"
+                    <textarea class="correction-input {% if row.status not in ('Corrected', 'Suggestion') %}hidden{% endif %}"
                               data-row="{{ row.row_num }}"
                               onblur="saveCorrected(this, {{ row.row_num }})">{{ row.corrected }}</textarea>
                 </td>
@@ -75,7 +77,7 @@ function setStatus(btn, rowNum, status) {
     btn.classList.add('active');
 
     // Show/hide textarea
-    if (status === 'Corrected') {
+    if (status === 'Corrected' || status === 'Suggestion') {
         textarea.classList.remove('hidden');
         textarea.focus();
     } else {
@@ -95,7 +97,7 @@ function setStatus(btn, rowNum, status) {
             assignment_id: ASSIGNMENT_ID,
             row_num: rowNum,
             status: status,
-            corrected: status === 'Correct' ? '' : corrected
+            corrected: (status === 'Corrected' || status === 'Suggestion') ? corrected : ''
         })
     }).then(r => r.json()).then(data => {
         if (data.success) updateProgress();
@@ -103,13 +105,17 @@ function setStatus(btn, rowNum, status) {
 }
 
 function saveCorrected(textarea, rowNum) {
+    const tr = textarea.closest('tr');
+    const activeBtn = tr.querySelector('.btn-status.active');
+    const status = activeBtn ? activeBtn.textContent.trim() : 'Corrected';
+    const statusMap = {'Correct': 'Correct', 'Needs Fix': 'Corrected', 'Suggestion': 'Suggestion'};
     fetch(SAVE_URL, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             assignment_id: ASSIGNMENT_ID,
             row_num: rowNum,
-            status: 'Corrected',
+            status: statusMap[status] || 'Corrected',
             corrected: textarea.value
         })
     });
@@ -120,7 +126,7 @@ function updateProgress() {
     const total = rows.length;
     let reviewed = 0;
     rows.forEach(r => {
-        if (r.classList.contains('row-correct') || r.classList.contains('row-corrected')) reviewed++;
+        if (r.classList.contains('row-correct') || r.classList.contains('row-corrected') || r.classList.contains('row-suggestion')) reviewed++;
     });
     const pct = total ? Math.round(reviewed / total * 100) : 0;
     document.getElementById('progressCounter').textContent = reviewed + '/' + total + ' reviewed (' + pct + '%)';
