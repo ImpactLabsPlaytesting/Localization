@@ -16,12 +16,15 @@ from magic_link import generate_magic_link, verify_token, cleanup_expired
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
-os.makedirs(os.path.join(os.path.dirname(__file__), 'logs'), exist_ok=True)
-logging.basicConfig(
-    filename=os.path.join(os.path.dirname(__file__), 'logs', 'app.log'),
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s %(message)s'
-)
+if os.environ.get('DATABASE_URL'):
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+else:
+    os.makedirs(os.path.join(os.path.dirname(__file__), 'logs'), exist_ok=True)
+    logging.basicConfig(
+        filename=os.path.join(os.path.dirname(__file__), 'logs', 'app.log'),
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s %(message)s'
+    )
 
 ALL_LANGUAGES = ['French', 'Spanish', 'German', 'Japanese', 'Russian', 'Chinese Simplified', 'Turkish']
 
