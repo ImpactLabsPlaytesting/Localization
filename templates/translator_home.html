@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% block title %}My Projects{% endblock %}
 {% block content %}
-<h1>My Translation Projects</h1>
+<div class="banner">
+    <div class="banner-overlay">
+        <h1>My Translation Projects</h1>
+    </div>
+</div>
 
 <div class="card">
     <table>
@@ -33,10 +37,13 @@
                     <span class="badge badge-active">Active</span>
                     {% endif %}
                 </td>
-                <td>
+                <td style="display: flex; gap: 6px; align-items: center;">
                     <a href="{{ url_for('translator_work', pid=a.project_id, aid=a.id) }}" class="btn btn-sm">
                         {% if a.status == 'done' %}Review{% else %}Translate{% endif %}
                     </a>
+                    {% if a.status != 'done' %}
+                    <button class="btn btn-sm btn-done" onclick="openUpdateModal({{ a.id }}, '{{ a.project_name }}', '{{ a.language }}')">Update Todd</button>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -46,4 +53,43 @@
         </tbody>
     </table>
 </div>
+
+<div style="margin-top: 16px;">
+    <a href="https://discord.com/channels/1126653460062933002/1430318879527407736" target="_blank" class="btn btn-sm" style="background: #5865F2; border-color: #5865F2; color: #fff;">Discord Channel</a>
+</div>
+
+<!-- Update Todd Modal -->
+<div id="updateModal" class="modal hidden">
+    <div class="modal-content card">
+        <h3>Update Todd</h3>
+        <p class="subtitle" id="modalProject"></p>
+        <form method="POST" id="updateForm">
+            <label style="display: block; margin-bottom: 4px; font-size: 0.85rem; color: var(--text-muted);">Note (optional)</label>
+            <textarea name="note" class="correction-input" style="min-height: 80px; margin-bottom: 12px;" placeholder="Any notes for Todd..."></textarea>
+            <label class="checkbox-label" style="margin-bottom: 12px;">
+                <input type="checkbox" name="mark_done" value="1"> Mark as complete
+            </label>
+            <div style="display: flex; gap: 8px;">
+                <button type="submit" class="btn">Send Update</button>
+                <button type="button" class="btn" style="background: transparent; border-color: var(--border); color: var(--text);" onclick="closeUpdateModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openUpdateModal(aid, project, language) {
+    document.getElementById('modalProject').textContent = project + ' - ' + language;
+    document.getElementById('updateForm').action = '/translate/' + aid + '/update';
+    document.getElementById('updateModal').classList.remove('hidden');
+}
+function closeUpdateModal() {
+    document.getElementById('updateModal').classList.add('hidden');
+}
+document.getElementById('updateModal').addEventListener('click', function(e) {
+    if (e.target === this) closeUpdateModal();
+});
+</script>
 {% endblock %}

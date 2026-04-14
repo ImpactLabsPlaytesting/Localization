@@ -1,12 +1,10 @@
 import os
+import json
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-import config
 
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/gmail.send',
 ]
 
 _creds = None
@@ -18,27 +16,21 @@ def get_credentials():
         return _creds
     if _creds and _creds.expired and _creds.refresh_token:
         _creds.refresh(Request())
-        _save_token(_creds)
         return _creds
 
-    token_path = config.GOOGLE_TOKEN_PATH
-    creds_path = config.GOOGLE_CREDENTIALS_PATH
-
-    if os.path.exists(token_path):
-        _creds = Credentials.from_authorized_user_file(token_path, SCOPES)
-        if _creds and _creds.valid:
-            return _creds
+    token_json = os.environ.get('GOOGLE_TOKEN_JSON', '')
+    if token_json:
+        info = json.loads(token_json)
+        _creds = Credentials.from_authorized_user_info(info, SCOPES)
         if _creds and _creds.expired and _creds.refresh_token:
             _creds.refresh(Request())
-            _save_token(_creds)
-            return _creds
+        return _creds
 
-    flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
-    _creds = flow.run_local_server(port=0)
-    _save_token(_creds)
-    return _creds
+    token_path = os.environ.get('GOOGLE_TOKEN_PATH', 'token.json')
+    if os.path.exists(token_path):
+        _creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        if _creds and _creds.expired and _creds.refresh_token:
+            _creds.refresh(Request())
+        return _creds
 
-
-def _save_token(creds):
-    with open(config.GOOGLE_TOKEN_PATH, 'w') as f:
-        f.write(creds.to_json())
+    raise RuntimeError('No Google credentials found. Set GOOGLE_TOKEN_JSON env var.')

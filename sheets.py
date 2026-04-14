@@ -25,9 +25,10 @@ def read_main_tab(sheet_id, tab_name='Sheet1'):
     if not rows:
         return {'headers': [], 'languages': [], 'rows': []}
 
+    VALID_LANGUAGES = {'French', 'Spanish', 'German', 'Japanese', 'Russian', 'Chinese Simplified', 'Turkish'}
     headers = rows[0]
     standard_cols = headers[:4]
-    languages = headers[4:]
+    languages = [h.strip() for h in headers[4:] if h.strip() in VALID_LANGUAGES]
 
     parsed = []
     for i, row in enumerate(rows[1:], start=2):
@@ -41,9 +42,13 @@ def read_main_tab(sheet_id, tab_name='Sheet1'):
             'context': row[2].strip() if len(row) > 2 else '',
             'english': row[3].strip() if len(row) > 3 else '',
         }
+        raw_headers = rows[0]
         for j, lang in enumerate(languages):
-            col_idx = 4 + j
-            entry[lang] = row[col_idx].strip() if len(row) > col_idx and row[col_idx].strip() else ''
+            try:
+                col_idx = raw_headers.index(lang)
+            except ValueError:
+                col_idx = -1
+            entry[lang] = row[col_idx].strip() if col_idx >= 0 and len(row) > col_idx and row[col_idx].strip() else ''
         parsed.append(entry)
 
     return {'headers': headers, 'languages': languages, 'rows': parsed}

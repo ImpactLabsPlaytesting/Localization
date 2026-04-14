@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="banner">
+    <div class="banner-overlay">
+        <h1>Dashboard</h1>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number">{{ project_count }}</div>
+        <div class="stat-label">Projects</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ translator_count }}</div>
+        <div class="stat-label">Translators</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ active_assignments }}</div>
+        <div class="stat-label">Active Assignments</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ done_assignments }}</div>
+        <div class="stat-label">Completed</div>
+    </div>
+</div>
+
+{% for p in project_stats %}
+<div class="card">
+    <div class="project-header">
+        <h3><a href="{{ url_for('admin_project_detail', pid=p.id) }}">{{ p.name }}</a></h3>
+        <div class="project-overall">
+            <div class="progress-bar-container" style="width: 200px;">
+                <div class="progress-bar {% if p.overall_pct >= 90 %}green{% elif p.overall_pct >= 50 %}yellow{% else %}red{% endif %}"
+                     style="width: {{ p.overall_pct }}%"></div>
+            </div>
+            <span class="progress-text">{{ p.total_reviewed }}/{{ p.total_rows }} overall ({{ p.overall_pct }}%)</span>
+        </div>
+    </div>
+    {% if p.languages %}
+    <table>
+        <thead>
+            <tr>
+                <th>Language</th>
+                <th>Translator</th>
+                <th>Progress</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for l in p.languages %}
+            <tr>
+                <td>{{ l.language }}</td>
+                <td class="{% if l.status == 'done' %}translator-done{% endif %}">{{ l.translator }}</td>
+                <td>
+                    <div style="display: flex; align-items: center;">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar {% if l.progress.pct >= 90 %}green{% elif l.progress.pct >= 50 %}yellow{% else %}red{% endif %}"
+                                 style="width: {{ l.progress.pct }}%"></div>
+                        </div>
+                        <span class="progress-text">{{ l.progress.reviewed }}/{{ l.progress.total }} ({{ l.progress.pct }}%)</span>
+                    </div>
+                </td>
+                <td>
+                    {% if l.status == 'done' %}
+                    <span class="badge badge-done">Done</span>
+                    {% else %}
+                    <span class="badge badge-active">Active</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No translators assigned yet.</p>
+    {% endif %}
+</div>
+{% endfor %}
+
+{% if not project_stats %}
+<div class="card">
+    <p class="empty">No projects yet. <a href="{{ url_for('admin_projects') }}">Add one</a> to get started.</p>
+</div>
+{% endif %}
+{% endblock %}

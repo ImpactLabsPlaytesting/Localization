@@ -1,27 +1,30 @@
 {% extends "base.html" %}
 {% block title %}{{ project.name }}{% endblock %}
 {% block content %}
-<h1>{{ project.name }}</h1>
-<p class="subtitle">Sheet: <code>{{ project.sheet_id }}</code> | Tab: <code>{{ project.main_tab }}</code></p>
+<div class="banner">
+    <div class="banner-overlay">
+        <h1>{{ project.name }}</h1>
+        <p class="subtitle" style="margin-bottom: 0;">Tab: <code>{{ project.main_tab }}</code> | <a href="https://docs.google.com/spreadsheets/d/{{ project.sheet_id }}" target="_blank" style="color: var(--accent);">Open Sheet</a></p>
+    </div>
+</div>
 
-{% if languages %}
+{% set has_eligible = eligible_by_lang.values() | map('length') | sum > 0 %}
+{% if languages and has_eligible %}
 <div class="card">
     <h3>Invite Translators</h3>
     <form method="POST" action="{{ url_for('admin_invite', pid=project.id) }}">
         {% for lang in languages %}
+        {% set eligible = eligible_by_lang.get(lang, []) %}
+        {% if eligible %}
         <div class="invite-section">
             <h4>{{ lang }}</h4>
-            {% set eligible = eligible_by_lang.get(lang, []) %}
-            {% if eligible %}
             {% for t in eligible %}
             <label class="checkbox-label">
                 <input type="checkbox" name="invite" value="{{ t.id }}:{{ lang }}"> {{ t.name }} ({{ t.email }})
             </label>
             {% endfor %}
-            {% else %}
-            <p class="empty">No eligible translators for {{ lang }}.</p>
-            {% endif %}
         </div>
+        {% endif %}
         {% endfor %}
         <button type="submit">Invite Selected</button>
     </form>

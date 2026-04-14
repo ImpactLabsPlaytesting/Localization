@@ -1,49 +1,60 @@
-import base64
+import smtplib
+import os
 from email.mime.text import MIMEText
-from googleapiclient.discovery import build
-from google_auth import get_credentials
-import config
 
+SMTP_USER = os.environ.get('SMTP_USER', '')
+SMTP_PASS = os.environ.get('SMTP_PASS', '')
+SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+FROM_NAME = 'Todd Jackson (Impact Labs)'
 
-def _get_gmail_service():
-    creds = get_credentials()
-    return build('gmail', 'v1', credentials=creds)
+BITLY_LOGIN = 'https://bit.ly/LabsLocalization'
 
 
 def send_email(to_email, subject, body_html):
-    service = _get_gmail_service()
     message = MIMEText(body_html, 'html')
     message['to'] = to_email
+    message['from'] = f'{FROM_NAME} <{SMTP_USER}>'
     message['subject'] = subject
-    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
-    service.users().messages().send(
-        userId='me',
-        body={'raw': raw}
-    ).execute()
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASS)
+        server.send_message(message)
 
 
 def send_invitation(translator_name, translator_email, project_name, language, dashboard_url):
     subject = f"You've been invited to review {language} translations - {project_name}"
     body = f"""<p>Hi {translator_name},</p>
 <p>You've been invited to review <strong>{language}</strong> translations for <strong>{project_name}</strong>.</p>
-<p>Log in to get started: <a href="{dashboard_url}">{dashboard_url}</a></p>
+<p>Log in to get started: <a href="{BITLY_LOGIN}">{BITLY_LOGIN}</a></p>
 <p>- Impact Labs</p>"""
     send_email(translator_email, subject, body)
 
 
 def send_new_rows_notification(translator_name, translator_email, project_name, language, count, dashboard_url):
-    subject = f"New rows to review - {project_name} ({language})"
+    subject = f"Translations pending - {project_name} ({language})"
     body = f"""<p>Hi {translator_name},</p>
-<p><strong>{count}</strong> new rows have been added to <strong>{project_name}</strong> for <strong>{language}</strong> review.</p>
-<p>Log in to review: <a href="{dashboard_url}">{dashboard_url}</a></p>
+<p>You have <strong>{count}</strong> rows pending review for <strong>{language}</strong> on <strong>{project_name}</strong>.</p>
+<p>Log in to review: <a href="{BITLY_LOGIN}">{BITLY_LOGIN}</a></p>
+<p>- Impact Labs</p>"""
+    send_email(translator_email, subject, body)
+
+
+def send_magic_link(translator_name, translator_email, login_url):
+    subject = "Your Impact Labs Login Link"
+    body = f"""<p>Hi {translator_name},</p>
+<p>Click the link below to log in to the Localization Dashboard:</p>
+<p><a href="{login_url}">{login_url}</a></p>
+<p>This link expires in 15 minutes.</p>
 <p>- Impact Labs</p>"""
     send_email(translator_email, subject, body)
 
 
 def send_done_notification(translator_name, project_name, language, reviewed, total, correct, corrected):
-    if not config.ADMIN_EMAIL:
+    admin_email = os.environ.get('ADMIN_EMAIL', '')
+    if not admin_email:
         return
     subject = f"{translator_name} completed {language} review - {project_name}"
     body = f"""<p>{translator_name} has marked their <strong>{language}</strong> review as complete for <strong>{project_name}</strong>.</p>
 <p>{reviewed}/{total} rows reviewed ({correct} correct, {corrected} corrected).</p>"""
-    send_email(config.ADMIN_EMAIL, subject, body)
+    send_email(admin_email, subject, body)

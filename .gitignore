@@ -6,3 +6,9 @@ credentials.json
 token.json
 localization.db
 *.db
+logs/
+tunnel_url.txt
+*.ps1
+run.py
+tunnel_wrapper.py
+System.Collections.Hashtable

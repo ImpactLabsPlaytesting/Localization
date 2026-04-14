@@ -1,6 +1,7 @@
 import os
 import json
 import secrets
+import logging
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from functools import wraps
@@ -10,9 +11,17 @@ from db import get_db, init_db
 from auth import verify_admin_password, verify_totp, generate_totp_secret, get_totp_qr_base64, admin_required
 import sheets
 import email_service
+from magic_link import generate_magic_link, verify_token, cleanup_expired
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
+
+os.makedirs(os.path.join(os.path.dirname(__file__), 'logs'), exist_ok=True)
+logging.basicConfig(
+    filename=os.path.join(os.path.dirname(__file__), 'logs', 'app.log'),
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(message)s'
+)
 
 ALL_LANGUAGES = ['French', 'Spanish', 'German', 'Japanese', 'Russian', 'Chinese Simplified', 'Turkish']
 
@@ -31,7 +40,7 @@ def translator_required(f):
 @app.route('/')
 def index():
     if session.get('admin_authenticated'):
-        return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('admin_overview'))
     if session.get('translator_id'):
         return redirect(url_for('translator_home'))
     return redirect(url_for('admin_login'))
@@ -122,21 +131,87 @@ def admin_logout():
 
 
 # ============================================================
+# ADMIN - OVERVIEW DASHBOARD
+# ============================================================
+
+@app.route('/admin/overview')
+@admin_required
+def admin_overview():
+    db = get_db()
+    project_count = db.execute('SELECT COUNT(*) as c FROM projects').fetchone()['c']
+    translator_count = db.execute('SELECT COUNT(*) as c FROM translators').fetchone()['c']
+    active_assignments = db.execute("SELECT COUNT(*) as c FROM assignments WHERE status = 'active'").fetchone()['c']
+    done_assignments = db.execute("SELECT COUNT(*) as c FROM assignments WHERE status = 'done'").fetchone()['c']
+
+    # Per-project stats
+    projects = db.execute('SELECT * FROM projects ORDER BY created_at DESC').fetchall()
+    project_stats = []
+    for p in projects:
+        assignments = db.execute('''
+            SELECT a.*, t.name as translator_name
+            FROM assignments a JOIN translators t ON a.translator_id = t.id
+            WHERE a.project_id = ?
+            ORDER BY a.language
+        ''', (p['id'],)).fetchall()
+        lang_stats = []
+        total_rows = 0
+        total_reviewed = 0
+        for a in assignments:
+            try:
+                progress = sheets.get_progress(a['sheet_id'] if 'sheet_id' in a.keys() else p['sheet_id'], a['tab_name'])
+            except Exception:
+                progress = {'total': 0, 'reviewed': 0, 'correct': 0, 'corrected': 0, 'pct': 0}
+            total_rows += progress['total']
+            total_reviewed += progress['reviewed']
+            lang_stats.append({
+                'language': a['language'],
+                'translator': a['translator_name'],
+                'status': a['status'],
+                'progress': progress
+            })
+        overall_pct = round(total_reviewed / total_rows * 100) if total_rows else 0
+        project_stats.append({
+            'id': p['id'],
+            'name': p['name'],
+            'languages': lang_stats,
+            'overall_pct': overall_pct,
+            'total_rows': total_rows,
+            'total_reviewed': total_reviewed
+        })
+
+    db.close()
+    return render_template('admin_overview.html',
+                           project_count=project_count,
+                           translator_count=translator_count,
+                           active_assignments=active_assignments,
+                           done_assignments=done_assignments,
+                           project_stats=project_stats)
+
+
+# ============================================================
 # ADMIN - TRANSLATOR ROSTER
 # ============================================================
 
-@app.route('/admin/')
+@app.route('/admin/translators')
 @admin_required
 def admin_dashboard():
     db = get_db()
     translators = db.execute('SELECT * FROM translators ORDER BY name').fetchall()
     result = []
     for t in translators:
-        active_count = db.execute(
-            "SELECT COUNT(*) as c FROM assignments WHERE translator_id = ? AND status = 'active'",
-            (t['id'],)
-        ).fetchone()['c']
-        result.append({**dict(t), 'active_count': active_count})
+        assignments = db.execute('''
+            SELECT a.*, p.sheet_id, p.name as project_name
+            FROM assignments a JOIN projects p ON a.project_id = p.id
+            WHERE a.translator_id = ? ORDER BY a.status, p.name
+        ''', (t['id'],)).fetchall()
+        t_assignments = []
+        for a in assignments:
+            try:
+                progress = sheets.get_progress(a['sheet_id'], a['tab_name'])
+            except Exception:
+                progress = {'total': 0, 'reviewed': 0, 'correct': 0, 'corrected': 0, 'pct': 0}
+            t_assignments.append({**dict(a), 'progress': progress})
+        result.append({**dict(t), 'assignments': t_assignments})
     db.close()
     return render_template('admin_dashboard.html', translators=result, all_languages=ALL_LANGUAGES)
 
@@ -184,15 +259,25 @@ def admin_projects():
     projects = db.execute('SELECT * FROM projects ORDER BY created_at DESC').fetchall()
     result = []
     for p in projects:
-        assignment_count = db.execute(
-            'SELECT COUNT(*) as c FROM assignments WHERE project_id = ?', (p['id'],)
-        ).fetchone()['c']
+        assignments = db.execute('''
+            SELECT a.*, t.name as translator_name
+            FROM assignments a JOIN translators t ON a.translator_id = t.id
+            WHERE a.project_id = ?
+        ''', (p['id'],)).fetchall()
         try:
             data = sheets.read_main_tab(p['sheet_id'], p['main_tab'])
             languages = data['languages']
-        except Exception:
+        except Exception as e:
+            logging.error(f"read_main_tab failed for {p['name']} (sheet={p['sheet_id']}, tab={p['main_tab']}): {e}")
             languages = []
-        result.append({**dict(p), 'assignment_count': assignment_count, 'languages': languages})
+        total_new = 0
+        for a in assignments:
+            try:
+                new_keys = sheets.get_new_keys(p['sheet_id'], p['main_tab'], a['tab_name'])
+                total_new += len(new_keys)
+            except Exception:
+                pass
+        result.append({**dict(p), 'assignment_count': len(assignments), 'languages': languages, 'new_rows': total_new})
     db.close()
     return render_template('admin_projects.html', projects=result)
 
@@ -269,10 +354,15 @@ def admin_project_detail(pid):
     for a in assignments_raw:
         try:
             progress = sheets.get_progress(project['sheet_id'], a['tab_name'])
+        except Exception as e:
+            print(f"[ERROR] get_progress failed for {a['tab_name']}: {e}")
+            progress = {'total': 0, 'reviewed': 0, 'correct': 0, 'corrected': 0, 'pct': 0}
+        try:
             new_keys = sheets.get_new_keys(project['sheet_id'], project['main_tab'], a['tab_name'])
             new_rows = len(new_keys)
-        except Exception:
-            progress = {'total': 0, 'reviewed': 0, 'correct': 0, 'corrected': 0, 'pct': 0}
+        except Exception as e:
+            print(f"[ERROR] get_new_keys failed for {a['tab_name']}: {e}")
+            import traceback; traceback.print_exc()
             new_rows = 0
         assignments.append({
             **dict(a),
@@ -384,12 +474,13 @@ def admin_notify_assignment(pid, aid):
         return redirect(url_for('admin_project_detail', pid=pid))
 
     try:
-        new_keys = sheets.get_new_keys(assignment['sheet_id'], assignment['main_tab'], assignment['tab_name'])
+        progress = sheets.get_progress(assignment['sheet_id'], assignment['tab_name'])
+        pending = progress['total'] - progress['reviewed']
         dashboard_url = f"{config.BASE_URL}/translate/"
         email_service.send_new_rows_notification(
             assignment['translator_name'], assignment['translator_email'],
             assignment['project_name'], assignment['language'],
-            len(new_keys), dashboard_url
+            pending, dashboard_url
         )
         flash(f'Notification sent to {assignment["translator_name"]}.', 'success')
     except Exception as e:
@@ -414,84 +505,38 @@ def admin_delete_assignment(pid, aid):
 # TRANSLATOR AUTH (Google OAuth)
 # ============================================================
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def translator_login_page():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        if not email:
+            flash('Please enter your email.', 'error')
+            return render_template('translator_login.html')
+        result = generate_magic_link(email)
+        if result:
+            flash('Login link sent! Check your email.', 'success')
+        else:
+            flash('Login link sent! Check your email.', 'success')
+        return render_template('translator_login.html', email_sent=True)
     return render_template('translator_login.html')
 
 
-@app.route('/login/google')
-def translator_google_login():
-    from google_auth_oauthlib.flow import Flow
-    flow = Flow.from_client_config(
-        {
-            "web": {
-                "client_id": config.GOOGLE_CLIENT_ID,
-                "client_secret": config.GOOGLE_CLIENT_SECRET,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [f"{config.BASE_URL}/login/callback"]
-            }
-        },
-        scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email',
-                'https://www.googleapis.com/auth/userinfo.profile']
-    )
-    flow.redirect_uri = f"{config.BASE_URL}/login/callback"
-    auth_url, state = flow.authorization_url(prompt='select_account')
-    session['oauth_state'] = state
-    return redirect(auth_url)
-
-
-@app.route('/login/callback')
-def translator_google_callback():
-    from google_auth_oauthlib.flow import Flow
-    from google.auth.transport.requests import Request as GoogleRequest
-    import google.auth.transport.requests
-
-    flow = Flow.from_client_config(
-        {
-            "web": {
-                "client_id": config.GOOGLE_CLIENT_ID,
-                "client_secret": config.GOOGLE_CLIENT_SECRET,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [f"{config.BASE_URL}/login/callback"]
-            }
-        },
-        scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email',
-                'https://www.googleapis.com/auth/userinfo.profile'],
-        state=session.get('oauth_state')
-    )
-    flow.redirect_uri = f"{config.BASE_URL}/login/callback"
-    flow.fetch_token(authorization_response=request.url)
-
-    from google.oauth2 import id_token
-    from google.auth.transport import requests as google_requests
-    credentials = flow.credentials
-    id_info = id_token.verify_oauth2_token(
-        credentials.id_token,
-        google_requests.Request(),
-        config.GOOGLE_CLIENT_ID
-    )
-
-    email = id_info.get('email', '').lower()
-    name = id_info.get('name', '')
-    google_id = id_info.get('sub', '')
-
-    db = get_db()
-    translator = db.execute('SELECT * FROM translators WHERE LOWER(email) = ?', (email,)).fetchone()
-    if not translator:
-        db.close()
-        flash('Access denied. Your email is not registered.', 'error')
+@app.route('/login/verify')
+def translator_verify_login():
+    token = request.args.get('token', '')
+    if not token:
+        flash('Invalid login link.', 'error')
         return redirect(url_for('translator_login_page'))
 
-    if not translator['google_id']:
-        db.execute('UPDATE translators SET google_id = ? WHERE id = ?', (google_id, translator['id']))
-        db.commit()
+    translator = verify_token(token)
+    if not translator:
+        flash('Login link expired or already used. Request a new one.', 'error')
+        return redirect(url_for('translator_login_page'))
 
     session['translator_id'] = translator['id']
     session['translator_name'] = translator['name']
-    session['translator_email'] = email
-    db.close()
+    session['translator_email'] = translator['email']
+    cleanup_expired()
     return redirect(url_for('translator_home'))
 
 
@@ -588,6 +633,49 @@ def api_save():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/translate/<int:aid>/update', methods=['POST'])
+@translator_required
+def translator_update(aid):
+    db = get_db()
+    assignment = db.execute('''
+        SELECT a.*, p.name as project_name, p.sheet_id, t.name as translator_name
+        FROM assignments a
+        JOIN projects p ON a.project_id = p.id
+        JOIN translators t ON a.translator_id = t.id
+        WHERE a.id = ? AND a.translator_id = ?
+    ''', (aid, session['translator_id'])).fetchone()
+
+    if not assignment:
+        flash('Assignment not found.', 'error')
+        db.close()
+        return redirect(url_for('translator_home'))
+
+    note = request.form.get('note', '').strip()
+    mark_done = request.form.get('mark_done') == '1'
+
+    if mark_done:
+        db.execute("UPDATE assignments SET status = 'done', done_at = ? WHERE id = ?",
+                   (datetime.utcnow().isoformat(), aid))
+        db.commit()
+
+    try:
+        progress = sheets.get_progress(assignment['sheet_id'], assignment['tab_name'])
+        subject = f"Update from {assignment['translator_name']} - {assignment['project_name']} ({assignment['language']})"
+        status_line = "COMPLETED" if mark_done else f"{progress['reviewed']}/{progress['total']} reviewed ({progress['pct']}%)"
+        note_line = f"<p><strong>Note:</strong> {note}</p>" if note else ""
+        body = f"""<p><strong>{assignment['translator_name']}</strong> sent an update for <strong>{assignment['language']}</strong> on <strong>{assignment['project_name']}</strong>.</p>
+<p>Status: {status_line}</p>
+{note_line}"""
+        email_service.send_email(config.ADMIN_EMAIL, subject, body)
+    except Exception:
+        pass
+
+    db.close()
+    msg = 'Marked as done and Todd has been notified.' if mark_done else 'Update sent to Todd.'
+    flash(msg, 'success')
+    return redirect(url_for('translator_home'))
+
+
 @app.route('/translate/<int:aid>/done', methods=['POST'])
 @translator_required
 def translator_mark_done(aid):
@@ -632,7 +720,10 @@ def translator_mark_done(aid):
 # STARTUP
 # ============================================================
 
+init_db()
+
 if __name__ == '__main__':
-    init_db()
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-    app.run(host='0.0.0.0', port=6767, debug=True)
+    debug = os.environ.get('FLASK_DEBUG', '0') == '1'
+    port = int(os.environ.get('PORT', 6767))
+    app.run(host='0.0.0.0', port=port, debug=debug)

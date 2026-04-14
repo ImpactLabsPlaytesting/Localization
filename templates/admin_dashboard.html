@@ -26,7 +26,7 @@
                 <th>Name</th>
                 <th>Email</th>
                 <th>Languages</th>
-                <th>Active Projects</th>
+                <th>Assignments</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -36,7 +36,25 @@
                 <td>{{ t.name }}</td>
                 <td>{{ t.email }}</td>
                 <td>{{ t.languages }}</td>
-                <td>{{ t.active_count }}</td>
+                <td>
+                    {% if t.assignments %}
+                    {% for a in t.assignments %}
+                    <div style="margin-bottom: 6px;">
+                        <span style="font-size: 0.85rem;">{{ a.project_name }} - {{ a.language }}</span>
+                        {% if a.status == 'done' %}<span class="badge badge-done" style="margin-left: 6px;">Done</span>{% endif %}
+                        <div style="display: flex; align-items: center; margin-top: 3px;">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar {% if a.progress.pct >= 90 %}green{% elif a.progress.pct >= 50 %}yellow{% else %}red{% endif %}"
+                                     style="width: {{ a.progress.pct }}%"></div>
+                            </div>
+                            <span class="progress-text">{{ a.progress.reviewed }}/{{ a.progress.total }} ({{ a.progress.pct }}%)</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <span class="empty" style="padding: 0;">No assignments</span>
+                    {% endif %}
+                </td>
                 <td>
                     <form method="POST" action="{{ url_for('admin_delete_translator', tid=t.id) }}" class="inline"
                           onsubmit="return confirm('Remove {{ t.name }}?')">
