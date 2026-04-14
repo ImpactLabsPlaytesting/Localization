@@ -8,25 +8,39 @@
     </div>
 </div>
 
-{% set has_eligible = eligible_by_lang.values() | map('length') | sum > 0 %}
-{% if languages and has_eligible %}
+{% if languages and invite_grid %}
 <div class="card">
     <h3>Invite Translators</h3>
     <form method="POST" action="{{ url_for('admin_invite', pid=project.id) }}">
-        {% for lang in languages %}
-        {% set eligible = eligible_by_lang.get(lang, []) %}
-        {% if eligible %}
-        <div class="invite-section">
-            <h4>{{ lang }}</h4>
-            {% for t in eligible %}
-            <label class="checkbox-label">
-                <input type="checkbox" name="invite" value="{{ t.id }}:{{ lang }}"> {{ t.name }} ({{ t.email }})
-            </label>
-            {% endfor %}
-        </div>
-        {% endif %}
-        {% endfor %}
-        <button type="submit">Invite Selected</button>
+        <table class="invite-grid">
+            <thead>
+                <tr>
+                    <th>Translator</th>
+                    {% for lang in languages %}
+                    <th style="text-align: center;">{{ lang }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in invite_grid %}
+                <tr>
+                    <td>{{ t.name }}<br><span style="font-size: 0.8rem; opacity: 0.6;">{{ t.email }}</span></td>
+                    {% for lang in languages %}
+                    <td style="text-align: center;">
+                        {% if t.lang_status[lang] == 'eligible' %}
+                        <input type="checkbox" name="invite" value="{{ t.id }}:{{ lang }}">
+                        {% elif t.lang_status[lang] == 'assigned' %}
+                        <span style="opacity: 0.4;" title="Already assigned">&#10003;</span>
+                        {% else %}
+                        <input type="checkbox" disabled style="opacity: 0.2;">
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="submit" style="margin-top: 12px;">Invite Selected</button>
     </form>
 </div>
 {% endif %}

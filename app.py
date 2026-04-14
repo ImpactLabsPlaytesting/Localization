@@ -358,20 +358,25 @@ def admin_project_detail(pid):
         flash(f'Error reading sheet: {e}', 'error')
         languages = []
 
-    # Get eligible translators per language
+    # Build translator grid for invite section
     all_translators = db.execute('SELECT * FROM translators ORDER BY name').fetchall()
-    eligible_by_lang = {}
-    for lang in languages:
-        eligible = []
-        for t in all_translators:
-            t_langs = [l.strip() for l in t['languages'].split(',') if l.strip()]
+    invite_grid = []
+    for t in all_translators:
+        t_langs = [l.strip() for l in t['languages'].split(',') if l.strip()]
+        lang_status = {}
+        for lang in languages:
             already_assigned = db.execute(
                 'SELECT id FROM assignments WHERE translator_id = ? AND project_id = ? AND language = ?',
                 (t['id'], pid, lang)
             ).fetchone()
-            if lang in t_langs and not already_assigned:
-                eligible.append(dict(t))
-        eligible_by_lang[lang] = eligible
+            if already_assigned:
+                lang_status[lang] = 'assigned'
+            elif lang in t_langs:
+                lang_status[lang] = 'eligible'
+            else:
+                lang_status[lang] = 'disabled'
+        if any(v == 'eligible' for v in lang_status.values()):
+            invite_grid.append({'id': t['id'], 'name': t['name'], 'email': t['email'], 'lang_status': lang_status})
 
     # Get active assignments with progress
     assignments_raw = db.execute('''
@@ -405,7 +410,7 @@ def admin_project_detail(pid):
     return render_template('admin_project.html',
                            project=dict(project),
                            languages=languages,
-                           eligible_by_lang=eligible_by_lang,
+                           invite_grid=invite_grid,
                            assignments=assignments)
 
 
