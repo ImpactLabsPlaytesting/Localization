@@ -247,6 +247,27 @@ def admin_add_translator():
     return redirect(url_for('admin_dashboard'))
 
 
+@app.route('/admin/translators/<int:tid>/edit', methods=['POST'])
+@admin_required
+def admin_edit_translator(tid):
+    name = request.form.get('name', '').strip()
+    email = request.form.get('email', '').strip()
+    languages = request.form.getlist('languages')
+    if not name or not email:
+        flash('Name and email are required.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    db = get_db()
+    try:
+        db.execute('UPDATE translators SET name = ?, email = ?, languages = ? WHERE id = ?',
+                    (name, email, ','.join(languages), tid))
+        db.commit()
+        flash(f'Updated {name}.', 'success')
+    except Exception as e:
+        flash(f'Error: {e}', 'error')
+    db.close()
+    return redirect(url_for('admin_dashboard'))
+
+
 @app.route('/admin/translators/<int:tid>/delete', methods=['POST'])
 @admin_required
 def admin_delete_translator(tid):

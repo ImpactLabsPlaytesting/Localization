@@ -32,7 +32,7 @@
         </thead>
         <tbody>
             {% for t in translators %}
-            <tr>
+            <tr id="row-{{ t.id }}">
                 <td>{{ t.name }}</td>
                 <td>{{ t.email }}</td>
                 <td>{{ t.languages }}</td>
@@ -56,9 +56,28 @@
                     {% endif %}
                 </td>
                 <td>
+                    <button class="btn btn-sm" onclick="document.getElementById('edit-{{ t.id }}').style.display='table-row'; this.closest('tr').style.display='none';">Edit</button>
                     <form method="POST" action="{{ url_for('admin_delete_translator', tid=t.id) }}" class="inline"
                           onsubmit="return confirm('Remove {{ t.name }}?')">
                         <button type="submit" class="btn-danger btn-sm">Remove</button>
+                    </form>
+                </td>
+            </tr>
+            <tr id="edit-{{ t.id }}" style="display: none;">
+                <td colspan="5">
+                    <form method="POST" action="{{ url_for('admin_edit_translator', tid=t.id) }}" class="inline-form" style="flex-wrap: wrap; gap: 8px;">
+                        <input type="text" name="name" value="{{ t.name }}" required style="width: 150px;">
+                        <input type="email" name="email" value="{{ t.email }}" required style="width: 200px;">
+                        <div class="language-checkboxes">
+                            {% set t_langs = t.languages.split(',') %}
+                            {% for lang in all_languages %}
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="languages" value="{{ lang }}" {% if lang in t_langs %}checked{% endif %}> {{ lang }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <button type="submit" class="btn btn-sm">Save</button>
+                        <button type="button" class="btn btn-sm" onclick="document.getElementById('row-{{ t.id }}').style.display=''; this.closest('tr').style.display='none';">Cancel</button>
                     </form>
                 </td>
             </tr>
