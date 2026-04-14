@@ -1,24 +1,31 @@
-import smtplib
+import base64
 import os
 from email.mime.text import MIMEText
+from googleapiclient.discovery import build
+from google_auth import get_credentials
 
 SMTP_USER = os.environ.get('SMTP_USER', '')
-SMTP_PASS = os.environ.get('SMTP_PASS', '')
-SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
-SMTP_PORT = int(os.environ.get('SMTP_PORT', '465'))
 FROM_NAME = 'Todd Jackson (Impact Labs)'
 
 BITLY_LOGIN = 'https://bit.ly/LabsLocalization'
 
 
+def _get_gmail_service():
+    creds = get_credentials()
+    return build('gmail', 'v1', credentials=creds)
+
+
 def send_email(to_email, subject, body_html):
+    service = _get_gmail_service()
     message = MIMEText(body_html, 'html')
     message['to'] = to_email
     message['from'] = f'{FROM_NAME} <{SMTP_USER}>'
     message['subject'] = subject
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
-        server.login(SMTP_USER, SMTP_PASS)
-        server.send_message(message)
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    service.users().messages().send(
+        userId='me',
+        body={'raw': raw}
+    ).execute()
 
 
 def send_invitation(translator_name, translator_email, project_name, language, dashboard_url):
