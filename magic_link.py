@@ -34,7 +34,9 @@ def verify_token(token):
         db.close()
         return None
 
-    expires_at = datetime.fromisoformat(row['expires_at'])
+    expires_at = row['expires_at']
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
     if datetime.utcnow() > expires_at:
         db.close()
         return None
@@ -50,6 +52,6 @@ def verify_token(token):
 def cleanup_expired():
     db = get_db()
     db.execute('DELETE FROM magic_links WHERE expires_at < ? OR used = 1',
-               (datetime.utcnow().isoformat(),))
+               (datetime.utcnow(),))
     db.commit()
     db.close()
