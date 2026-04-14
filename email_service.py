@@ -7,7 +7,7 @@ from google_auth import get_credentials
 SMTP_USER = os.environ.get('SMTP_USER', '')
 FROM_NAME = 'Todd Jackson (Impact Labs)'
 
-BITLY_LOGIN = 'https://bit.ly/LabsLocalization'
+LOGIN_URL = os.environ.get('BASE_URL', 'http://localhost:6767') + '/login'
 
 
 def _get_gmail_service():
@@ -32,7 +32,7 @@ def send_invitation(translator_name, translator_email, project_name, language, d
     subject = f"You've been invited to review {language} translations - {project_name}"
     body = f"""<p>Hi {translator_name},</p>
 <p>You've been invited to review <strong>{language}</strong> translations for <strong>{project_name}</strong>.</p>
-<p>Log in to get started: <a href="{BITLY_LOGIN}">{BITLY_LOGIN}</a></p>
+<p>Log in to get started: <a href="{LOGIN_URL}">{LOGIN_URL}</a></p>
 <p>- Impact Labs</p>"""
     send_email(translator_email, subject, body)
 
@@ -41,7 +41,7 @@ def send_new_rows_notification(translator_name, translator_email, project_name, 
     subject = f"Translations pending - {project_name} ({language})"
     body = f"""<p>Hi {translator_name},</p>
 <p>You have <strong>{count}</strong> rows pending review for <strong>{language}</strong> on <strong>{project_name}</strong>.</p>
-<p>Log in to review: <a href="{BITLY_LOGIN}">{BITLY_LOGIN}</a></p>
+<p>Log in to review: <a href="{LOGIN_URL}">{LOGIN_URL}</a></p>
 <p>- Impact Labs</p>"""
     send_email(translator_email, subject, body)
 
