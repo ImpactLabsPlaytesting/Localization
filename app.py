@@ -526,6 +526,38 @@ def admin_notify_assignment(pid, aid):
     return redirect(url_for('admin_project_detail', pid=pid))
 
 
+@app.route('/admin/project/<int:pid>/assignment/<int:aid>/nudge', methods=['POST'])
+@admin_required
+def admin_nudge_assignment(pid, aid):
+    db = get_db()
+    assignment = db.execute('''
+        SELECT a.*, t.name as translator_name, t.email as translator_email, p.name as project_name, p.sheet_id
+        FROM assignments a
+        JOIN translators t ON a.translator_id = t.id
+        JOIN projects p ON a.project_id = p.id
+        WHERE a.id = ?
+    ''', (aid,)).fetchone()
+
+    if not assignment:
+        flash('Assignment not found.', 'error')
+        db.close()
+        return redirect(url_for('admin_project_detail', pid=pid))
+
+    try:
+        progress = sheets.get_progress(assignment['sheet_id'], assignment['tab_name'])
+        pending = progress['total'] - progress['reviewed']
+        email_service.send_nudge(
+            assignment['translator_name'], assignment['translator_email'],
+            assignment['project_name'], assignment['language'], pending
+        )
+        flash(f'Nudge sent to {assignment["translator_name"]}.', 'success')
+    except Exception as e:
+        flash(f'Email error: {e}', 'error')
+
+    db.close()
+    return redirect(url_for('admin_project_detail', pid=pid))
+
+
 @app.route('/admin/project/<int:pid>/assignment/<int:aid>/delete', methods=['POST'])
 @admin_required
 def admin_delete_assignment(pid, aid):

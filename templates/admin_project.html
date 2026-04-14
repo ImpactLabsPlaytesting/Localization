@@ -88,6 +88,9 @@
                     <form method="POST" action="{{ url_for('admin_notify_assignment', pid=project.id, aid=a.id) }}" class="inline">
                         <button type="submit" class="btn btn-sm">Notify</button>
                     </form>
+                    <form method="POST" action="{{ url_for('admin_nudge_assignment', pid=project.id, aid=a.id) }}" class="inline">
+                        <button type="submit" class="btn btn-sm" style="background: var(--yellow-bg); border-color: var(--yellow); color: var(--yellow);">Nudge</button>
+                    </form>
                     <form method="POST" action="{{ url_for('admin_delete_assignment', pid=project.id, aid=a.id) }}" class="inline"
                           onsubmit="return confirm('Remove this assignment?')">
                         <button type="submit" class="btn-danger btn-sm">Remove</button>

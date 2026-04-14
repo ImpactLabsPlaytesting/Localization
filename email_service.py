@@ -99,6 +99,17 @@ def send_magic_link(translator_name, translator_email, login_url):
     send_email(translator_email, subject, body)
 
 
+def send_nudge(translator_name, translator_email, project_name, language, pending):
+    subject = f"Friendly reminder - {language} translations for {project_name}"
+    content = f'''
+        <p style="margin: 0 0 16px 0;">Hi {translator_name},</p>
+        <p style="margin: 0 0 16px 0;">Just a friendly reminder that you have <strong style="color: #00e68a;">{pending}</strong> translations still pending for <strong style="color: #ffffff;">{language}</strong> on <strong style="color: #ffffff;">{project_name}</strong>.</p>
+        <p style="margin: 0 0 16px 0;">When you get a chance, please log in and complete your review.</p>
+        <p style="margin: 0; color: #888; font-size: 13px;">If you're running into any issues or can't complete your translations, please jump on Discord and let us know so we can help.</p>'''
+    body = _wrap_email(content, 'Open Dashboard', LOGIN_URL)
+    send_email(translator_email, subject, body)
+
+
 def send_done_notification(translator_name, project_name, language, reviewed, total, correct, corrected):
     admin_email = os.environ.get('ADMIN_EMAIL', '')
     if not admin_email:

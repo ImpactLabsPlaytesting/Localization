@@ -190,9 +190,16 @@ button:hover, .btn:hover { background: var(--accent-hover); border-color: var(--
 .cell-current { max-width: 300px; }
 
 /* Status buttons */
+.cell-status {
+    white-space: nowrap;
+}
+.cell-status .btn-status {
+    display: block; width: 100%;
+    margin-bottom: 3px; text-align: center;
+}
 .btn-status {
-    padding: 3px 8px; font-size: 0.75rem;
-    border-radius: 3px; margin: 1px;
+    padding: 4px 10px; font-size: 0.75rem;
+    border-radius: 3px;
 }
 .btn-correct { border-color: var(--green); color: var(--green); background: transparent; }
 .btn-correct.active { background: var(--green); color: #fff; }
