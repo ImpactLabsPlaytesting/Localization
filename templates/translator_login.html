@@ -1,18 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Translator Login{% endblock %}
 {% block content %}
-<div class="auth-box">
-    <h2>Translator Login</h2>
+<div class="auth-box" style="max-width: 480px; margin: 60px auto; padding: 40px;">
+    <div style="text-align: center; margin-bottom: 24px;">
+        <img src="{{ url_for('static', filename='labslogo.png') }}" alt="Impact Labs" style="width: 70px; height: auto; margin-bottom: 12px;">
+        <h2 style="margin: 0 0 8px 0;">Translator Login</h2>
+    </div>
     {% if email_sent %}
-        <p>If your email is registered, you'll receive a login link shortly. Check your inbox.</p>
-        <p><a href="{{ url_for('translator_login_page') }}">Request another link</a></p>
+        <p style="text-align: center; margin-bottom: 16px;">If your email is registered, you'll receive a login link shortly. Check your inbox.</p>
+        <p style="text-align: center;"><a href="{{ url_for('translator_login_page') }}" style="color: var(--accent);">Request another link</a></p>
     {% else %}
-        <p>Enter your email to receive a login link.</p>
+        <p style="margin-bottom: 20px;">Enter your email to receive a login link.</p>
         <form method="POST">
-            <div class="form-group">
-                <input type="email" name="email" placeholder="you@example.com" required>
+            <div class="form-group" style="margin-bottom: 16px;">
+                <input type="email" name="email" placeholder="you@example.com" required style="width: 100%; padding: 12px; box-sizing: border-box;">
             </div>
-            <button type="submit" class="btn">Send Login Link</button>
+            <button type="submit" class="btn" style="width: 100%; padding: 12px;">Send Login Link</button>
         </form>
     {% endif %}
 </div>
