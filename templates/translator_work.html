@@ -30,7 +30,7 @@
                 <th>English</th>
                 <th>Current Translation</th>
                 <th>Status</th>
-                <th>Corrected Translation</th>
+                <th>Correction / Suggestion</th>
             </tr>
         </thead>
         <tbody>
@@ -53,7 +53,8 @@
                 <td class="cell-corrected">
                     <textarea class="correction-input {% if row.status not in ('Corrected', 'Suggestion') %}hidden{% endif %}"
                               data-row="{{ row.row_num }}"
-                              onblur="saveCorrected(this, {{ row.row_num }})">{{ row.corrected }}</textarea>
+                              placeholder="{% if row.status == 'Suggestion' %}Enter suggestion...{% else %}Enter correction...{% endif %}"
+                              onblur="saveCorrected(this, {{ row.row_num }})">{% if row.status == 'Suggestion' %}{{ row.suggestion }}{% elif row.status == 'Corrected' %}{{ row.corrected }}{% endif %}</textarea>
                 </td>
             </tr>
             {% endfor %}

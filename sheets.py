@@ -71,7 +71,7 @@ def create_translator_tab(sheet_id, tab_name, language, main_tab='Sheet1'):
     ).execute()
 
     # Build header + rows
-    header = ['Key', 'Type', 'Context', 'English', 'Current Translation', 'Status', 'Corrected Translation']
+    header = ['Key', 'Type', 'Context', 'English', 'Current Translation', 'Status', 'Corrected Translation', 'Suggestion']
     data_rows = []
     for row in main_data['rows']:
         data_rows.append([
@@ -81,6 +81,7 @@ def create_translator_tab(sheet_id, tab_name, language, main_tab='Sheet1'):
             row['english'],
             row.get(language, ''),
             'Pending',
+            '',
             ''
         ])
 
@@ -99,7 +100,7 @@ def read_translator_tab(sheet_id, tab_name):
     service = _get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range=f'{tab_name}!A1:G1000'
+        range=f'{tab_name}!A1:H1000'
     ).execute()
     rows = result.get('values', [])
     if len(rows) < 2:
@@ -118,6 +119,7 @@ def read_translator_tab(sheet_id, tab_name):
             'current': row[4].strip() if len(row) > 4 else '',
             'status': row[5].strip() if len(row) > 5 else 'Pending',
             'corrected': row[6].strip() if len(row) > 6 else '',
+            'suggestion': row[7].strip() if len(row) > 7 else '',
         })
     return parsed
 
@@ -139,11 +141,30 @@ STATUS_COLORS = {
 
 def save_translation(sheet_id, tab_name, row_num, status, corrected=''):
     service = _get_service()
+
+    # Read current translation (column E) for this row
+    current_result = service.spreadsheets().values().get(
+        spreadsheetId=sheet_id,
+        range=f'{tab_name}!E{row_num}'
+    ).execute()
+    current_vals = current_result.get('values', [['']])
+    current_translation = current_vals[0][0] if current_vals and current_vals[0] else ''
+
+    if status == 'Correct':
+        # Copy current translation into corrected, no suggestion
+        values = [[status, current_translation, '']]
+    elif status == 'Suggestion':
+        # Copy current translation into corrected, suggestion text in H
+        values = [[status, current_translation, corrected]]
+    else:
+        # Corrected: translator provided the fix, no suggestion
+        values = [[status, corrected, '']]
+
     service.spreadsheets().values().update(
         spreadsheetId=sheet_id,
-        range=f'{tab_name}!F{row_num}:G{row_num}',
+        range=f'{tab_name}!F{row_num}:H{row_num}',
         valueInputOption='RAW',
-        body={'values': [[status, corrected]]}
+        body={'values': values}
     ).execute()
 
     color = STATUS_COLORS.get(status)
@@ -194,6 +215,7 @@ def sync_new_rows(sheet_id, main_tab, translator_tab, language):
             row['english'],
             row.get(language, ''),
             'Pending',
+            '',
             ''
         ])
 
