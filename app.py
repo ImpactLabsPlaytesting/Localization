@@ -29,6 +29,13 @@ else:
 ALL_LANGUAGES = ['French', 'Spanish', 'German', 'Japanese', 'Russian', 'Chinese Simplified', 'Turkish']
 
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    logging.error(f"Unhandled exception: {e}\n{traceback.format_exc()}")
+    return "Internal Server Error", 500
+
+
 # --- Translator auth decorator ---
 def translator_required(f):
     @wraps(f)
