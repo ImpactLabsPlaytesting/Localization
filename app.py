@@ -60,6 +60,11 @@ def index():
 # ADMIN AUTH
 # ============================================================
 
+@app.route('/admin')
+def admin_redirect():
+    return redirect(url_for('admin_login'))
+
+
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
